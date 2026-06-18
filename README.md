@@ -152,4 +152,8 @@ A scheduled script running on a server does the following:
 ### About Me
 Hi!
 My name is Viraj Shah.
+I'm a rising high school junior from Cary, North Carolina.
+I love photography, camping, and quite obviously, FPGAs.
+This project is intended for ISEF.
+© Viraj Shah 2026. All Rights Reserved.
 Learn more about me [here](https://viraj-shah.vercel.app)!
