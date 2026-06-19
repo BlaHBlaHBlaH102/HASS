@@ -211,7 +211,7 @@ module tb_pkt_parser;
         // Ack number
         send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h00);
         // Data offset=5 (0x50), reserved=0
-        send_byte(8'h50); send_byte(8'h00);
+        send_byte(8'h50);
         // Flags: SYN only = 0x02
         send_byte(8'h02);
         // Window
