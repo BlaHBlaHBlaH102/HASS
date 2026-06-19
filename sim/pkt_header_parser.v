@@ -277,7 +277,7 @@ module pkt_header_parser (
                             end
                         endcase
 
-                        if (byte_count == tcp_data_offset_bytes - 1) begin
+                        if (byte_count == 8'd19) begin
                             byte_count    <= 0;
                             hdr_valid     <= 1;  // all fields now stable
                             payload_start <= 1;
