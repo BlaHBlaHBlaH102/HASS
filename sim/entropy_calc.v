@@ -56,8 +56,7 @@ module entropy_calc #(
                     window_done <= 1;
                     byte_count  <= 0;
                     // Clear for next window
-                    for (i = 0; i < 256; i = i + 1)
-                        freq[i] <= 0;
+
                 end
             end
         end
