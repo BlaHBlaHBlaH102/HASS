@@ -1,5 +1,9 @@
 ### Project Overview
 
+### Current Status:
+IN PROGRESS:
+Many engines or verilog files have not been fully tested for functionality.
+
 #### Snapshot
 * **Project Title**: Hardware Accelerated Security System (HASS)
 * **Project Name**: Click With Confidence SafeShield
