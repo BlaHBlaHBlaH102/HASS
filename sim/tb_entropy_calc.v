@@ -116,6 +116,62 @@ module tb_entropy_calc;
         @(posedge clk); frame_end <= 1; @(posedge clk); frame_end <= 0;
         repeat(4) @(posedge clk);
 
+        // -------------------------------------------------------
+        // TEST 4: short window (40 bytes), all identical -- 
+        // simulates a small DNS query payload.
+        // Expect H ~= 0 regardless of window length.
+        // -------------------------------------------------------
+        $display("--- TEST 4: 40x identical bytes, short frame (expect H ~ 0) ---");
+        @(posedge clk); frame_start <= 1; @(posedge clk); frame_start <= 0;
+        for (k = 0; k < 40; k = k + 1) begin
+            send_byte(8'h41);
+        end
+        @(posedge clk); frame_end <= 1; @(posedge clk); frame_end <= 0;
+        repeat(300) @(posedge clk);
+
+        $display("  entropy_value = %0d (Q9.7, i.e. %0d.%0d bits/byte)",
+                  entropy_value, entropy_value >> 7,
+                  ((entropy_value & 7'h7F) * 100) / 128);
+        $display("  entropy_alert = %b", entropy_alert);
+        repeat(4) @(posedge clk);
+
+        // -------------------------------------------------------
+        // TEST 5: short window (40 bytes), all distinct values.
+        // Theoretical entropy for 40 equally-likely distinct symbols
+        // is log2(40) ~= 5.32 bits/byte. Because the LUT is built
+        // for a 256-sample window, this approximation will read
+        // HIGHER than 5.32 -- documenting that known limitation here.
+        // -------------------------------------------------------
+        $display("--- TEST 5: 40 distinct bytes, short frame (theoretical H ~ 5.32) ---");
+        @(posedge clk); frame_start <= 1; @(posedge clk); frame_start <= 0;
+        for (k = 0; k < 40; k = k + 1) begin
+            send_byte(k[7:0]);
+        end
+        @(posedge clk); frame_end <= 1; @(posedge clk); frame_end <= 0;
+        repeat(300) @(posedge clk);
+
+        $display("  entropy_value = %0d (Q9.7, i.e. %0d.%0d bits/byte)",
+                  entropy_value, entropy_value >> 7,
+                  ((entropy_value & 7'h7F) * 100) / 128);
+        $display("  entropy_alert = %b", entropy_alert);
+        $display("  NOTE: LUT is normalized for 256-byte windows;");
+        $display("        expect this to read higher than true log2(40)=5.32");
+        repeat(4) @(posedge clk);
+
+        // -------------------------------------------------------
+        // TEST 6: zero-payload frame (e.g. ARP) -- frame_start
+        // immediately followed by frame_end, no bytes at all.
+        // Should NOT trigger window_done or corrupt entropy_value.
+        // -------------------------------------------------------
+        $display("--- TEST 6: zero-byte frame (expect no window_done, no change) ---");
+        @(posedge clk); frame_start <= 1; @(posedge clk); frame_start <= 0;
+        @(posedge clk); frame_end   <= 1; @(posedge clk); frame_end   <= 0;
+        repeat(20) @(posedge clk);
+
+        $display("  entropy_value = %0d (should be unchanged from TEST 5)", entropy_value);
+        $display("  entropy_alert = %b", entropy_alert);
+        repeat(4) @(posedge clk);
+
         $display("Simulation complete.");
         $finish;
     end
