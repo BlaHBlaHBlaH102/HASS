@@ -60,6 +60,7 @@ module entropy_calc #(
 
                 if (byte_count == WINDOW_SIZE - 1) begin
                     window_done <= 1;
+                    actual_count <= WINDOW_SIZE;
                     byte_count  <= 0;
                     // Clear for next window
 
