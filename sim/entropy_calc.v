@@ -32,6 +32,7 @@ module entropy_calc #(
     reg [7:0] freq [0:255];
     reg [7:0] byte_count;          // counts up to WINDOW_SIZE
     reg       window_done;         // pulses when window is full
+    reg [7:0] actual_count;        // actual count of bytes in window
 
     integer i;
     always @(posedge clk or negedge rst_n) begin
@@ -48,6 +49,11 @@ module entropy_calc #(
                 byte_count <= 0;
                 for (i = 0; i < 256; i = i + 1)
                     freq[i] <= 0;
+            end else if (frame_end) begin
+                if (byte_count > 0) begin
+                    window_done <= 1;
+                    actual_count <= byte_count;
+                end
             end else if (byte_valid) begin
                 freq[byte_in] <= freq[byte_in] + 1;
                 byte_count    <= byte_count + 1;
@@ -388,8 +394,8 @@ module entropy_calc #(
 
                 // Divide sum by 256 (right-shift 8) to get H in Q9.7
                 ACC_EVAL: begin
-                    entropy_value <= entropy_sum[23:8];
-                    entropy_alert <= (entropy_sum[23:8] >= ALERT_THRESH);
+                    entropy_value <= entropy_sum / actual_count;
+                    entropy_alert <= (entropy_sum / actual_count >= ALERT_THRESH);
                     acc_state     <= ACC_IDLE;
                 end
 
