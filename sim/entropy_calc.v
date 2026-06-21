@@ -396,6 +396,7 @@ module entropy_calc #(
 
                 // Divide sum by 256 (right-shift 8) to get H in Q9.7
                 ACC_EVAL: begin
+                    $display("    DEBUG: entropy_sum=%0d actual_count=%0d", entropy_sum, actual_count);
                     entropy_value <= entropy_sum / actual_count;
                     entropy_alert <= (entropy_sum / actual_count >= ALERT_THRESH);
                     acc_state     <= ACC_IDLE;
