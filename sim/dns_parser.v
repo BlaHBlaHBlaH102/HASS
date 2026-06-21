@@ -119,9 +119,7 @@ module dns_parser (
             nxdomain_window_timer <= 0;
         end else begin
 
-            // Default: deassert pulse signals each cycle
-            dns_alert       <= 0;
-            sinkhole_active <= 0;
+
 
             // NXDOMAIN flood window timer — free-running
             if (nxdomain_window_timer == 16'hFFFF) begin
@@ -135,6 +133,8 @@ module dns_parser (
                 state      <= S_HDR;
                 hdr_count  <= 0;
                 byte_idx   <= 0;
+                dns_alert  <= 0;
+                sinkhole_active <= 0;
             end else if (byte_valid) begin
                 case (state)
 
