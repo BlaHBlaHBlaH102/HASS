@@ -32,7 +32,7 @@ module entropy_calc #(
     reg [7:0] freq [0:255];
     reg [7:0] byte_count;          // counts up to WINDOW_SIZE
     reg       window_done;         // pulses when window is full
-    reg [7:0] actual_count;        // actual count of bytes in window
+    reg [8:0] actual_count;        // actual count of bytes in window
 
     integer i;
     always @(posedge clk or negedge rst_n) begin
