@@ -164,7 +164,7 @@ module rate_monitor (
             end
 
             // ARP spoof check — purely rate based, no flow needed
-            if (arp_reply_count >= ARP_THRESH) begin
+            if (pkt_valid && is_arp_reply && (arp_reply_count >= ARP_THRESH)) begin
                 rate_alert <= 1;
                 alert_type <= 2'd0;
             end
