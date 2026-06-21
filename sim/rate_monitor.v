@@ -186,14 +186,16 @@ module rate_monitor (
                              ft_pkt_count[matched_slot]);
 
                     // SYN flood: many SYNs, very few SYN-ACKs
-                    if (ft_syn_count[matched_slot] >= SYN_THRESH &&
-                        ft_synack[matched_slot] < 8'd5) begin
+                    if ((ft_syn_count[matched_slot] + (is_syn ? 1 : 0)) >= SYN_THRESH &&
+                        (ft_synack[matched_slot] + (is_syn_ack ? 1 : 0)) < 8'd5) begin
                         rate_alert <= 1;
                         alert_type <= 2'd1;
                     end
 
+
                     // C2 beaconing: abnormally high packet rate to same dst
-                    if (ft_pkt_count[matched_slot] >= BEACON_THRESH) begin
+                    // ft_pkt_count is unconditionally incremented above, so always +1 here
+                    if ((ft_pkt_count[matched_slot] + 1) >= BEACON_THRESH) begin
                         rate_alert <= 1;
                         alert_type <= 2'd2;
                     end
