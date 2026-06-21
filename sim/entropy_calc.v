@@ -374,7 +374,7 @@ module entropy_calc #(
             case (acc_state)
 
                 ACC_IDLE: begin
-                    entropy_alert <= 0;
+                    //entropy_alert <= 0;
                     if (window_done) begin
                         bin_idx     <= 0;
                         entropy_sum <= 0;
