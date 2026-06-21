@@ -1,5 +1,5 @@
 $date
-	Sat Jun 20 20:10:04 2026
+	Sat Jun 20 20:19:19 2026
 $end
 $version
 	Icarus Verilog
@@ -30,7 +30,7 @@ $var parameter 2 - ACC_SUM $end
 $var parameter 16 . ALERT_THRESH $end
 $var parameter 32 / WINDOW_SIZE $end
 $var reg 2 0 acc_state [1:0] $end
-$var reg 8 1 actual_count [7:0] $end
+$var reg 9 1 actual_count [8:0] $end
 $var reg 8 2 bin_idx [7:0] $end
 $var reg 8 3 byte_count [7:0] $end
 $var reg 1 " entropy_alert $end
@@ -3185,6 +3185,7 @@ b11111111 )
 #4152000
 0%
 #4156000
+b100000000 1
 17
 b0 3
 0$
@@ -4480,14 +4481,10 @@ b10 0
 0%
 #6220000
 b0 0
-x"
-bx !
-bx 5
 1%
 #6224000
 0%
 #6228000
-0"
 1%
 #6232000
 0%
@@ -10080,12 +10077,12 @@ b1000000000000000000 4
 0%
 #12780000
 b0 0
-x"
+b10000000000 !
+b10000000000 5
 1%
 #12784000
 0%
 #12788000
-0"
 1%
 #12792000
 0%
@@ -15424,12 +15421,12 @@ b10000000 6
 0%
 #19340000
 b0 0
-x"
+b10000000 !
+b10000000 5
 1%
 #19344000
 0%
 #19348000
-0"
 1%
 #19352000
 0%
