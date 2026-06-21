@@ -148,6 +148,11 @@ module tb_dns_parser;
 
     integer k;
 
+always @(posedge clk) begin
+    if(ac_match)
+        $display("    MONITOR: ac_match=1 at time %0t", $time);
+end
+
     initial begin
         rst_n = 0;
         repeat(4) @(posedge clk);
@@ -162,6 +167,7 @@ module tb_dns_parser;
         $display("--- TEST 1: query for known-bad domain (expect sinkhole) ---");
         start_frame;
         ac_match = 1;   // simulate AC engine having already flagged this domain
+        $display("    DEBUG: ac_match set to %b at time %0t", ac_match, $time);
         send_query_evilcom;
         ac_match = 0;
         end_frame;
