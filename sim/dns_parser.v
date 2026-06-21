@@ -134,7 +134,7 @@ module dns_parser (
                 hdr_count  <= 0;
                 byte_idx   <= 0;
                 dns_alert  <= 0;
-                sinkhole_active <= 0;
+                sinkhole_active <= 0;   
             end else if (byte_valid) begin
                 case (state)
 

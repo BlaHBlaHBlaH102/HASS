@@ -181,6 +181,10 @@ module rate_monitor (
                     if (is_syn_ack)
                         ft_synack[matched_slot] <= ft_synack[matched_slot] + 1;
 
+                    $display("    DEBUG: slot=%0d syn_count=%0d synack=%0d pkt_count=%0d",
+                             matched_slot, ft_syn_count[matched_slot], ft_synack[matched_slot],
+                             ft_pkt_count[matched_slot]);
+
                     // SYN flood: many SYNs, very few SYN-ACKs
                     if (ft_syn_count[matched_slot] >= SYN_THRESH &&
                         ft_synack[matched_slot] < 8'd5) begin
