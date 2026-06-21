@@ -8,7 +8,7 @@
 
 module entropy_calc #(
     parameter WINDOW_SIZE  = 256,   // bytes per analysis window
-    parameter ALERT_THRESH = 16'hE000 // ~7.0 in Q9.7 fixed point
+    parameter ALERT_THRESH = 16'd896 // ~7.0 in Q9.7 fixed point
 )(
     input  wire        clk,
     input  wire        rst_n,
