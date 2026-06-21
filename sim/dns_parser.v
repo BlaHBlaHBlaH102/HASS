@@ -165,7 +165,7 @@ module dns_parser (
                             // Check for NXDOMAIN flood on response packets
                             if (is_response && rcode == 4'd3) begin
                                 nxdomain_count <= nxdomain_count + 1;
-                                if (nxdomain_count >= NXDOMAIN_THRESH) begin
+                                if (nxdomain_count + 1>= NXDOMAIN_THRESH) begin
                                     dns_alert <= 1;
                                 end
                             end
@@ -211,6 +211,7 @@ module dns_parser (
                     S_QTYPE_LO:  state <= S_QCLASS_HI;
                     S_QCLASS_HI: state <= S_QCLASS_LO;
                     S_QCLASS_LO: begin
+                        $display("    DEBUG: in S_QCLASS_LO, ac_match=%b", ac_match);
                         // Done with question section
                         // If AC engine matched this domain, sinkhole it
                         if (ac_match) begin
