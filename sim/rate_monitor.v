@@ -151,7 +151,6 @@ module rate_monitor (
                 ft_dst_port[j]  <= 0;
             end
         end else begin
-            rate_alert <= 0;
 
             // Age all flows every cycle (decrement timer)
             for (j = 0; j < FLOW_SLOTS; j = j + 1) begin
