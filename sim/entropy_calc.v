@@ -39,6 +39,7 @@ module entropy_calc #(
         if (!rst_n) begin
             byte_count  <= 0;
             window_done <= 0;
+            actual_count <= 0;
             for (i = 0; i < 256; i = i + 1)
                 freq[i] <= 0;
         end else begin
