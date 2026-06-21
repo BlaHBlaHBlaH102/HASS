@@ -169,6 +169,7 @@ end
         ac_match = 1;   // simulate AC engine having already flagged this domain
         $display("    DEBUG: ac_match set to %b at time %0t", ac_match, $time);
         send_query_evilcom;
+        repeat(4) @(posedge clk);
         ac_match = 0;
         end_frame;
         repeat(4) @(posedge clk);
