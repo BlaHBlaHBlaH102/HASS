@@ -8,6 +8,21 @@ module hass_top (
     input  wire        clk_125mhz,    // Arty on-board oscillator
     input  wire        rst_btn,       // BTN0 as active-high reset
 
+`ifdef SIM_BYPASS_TEMAC
+// ----------------------------------------------------------
+// *** SIMULATION-ONLY PORTS ***
+// Added so tb_hass_top.v can drive the byte stream directly,
+// bypassing the real TEMAC IP (which Icarus cannot simulate).
+// These ports DO NOT EXIST in the synthesizable design.
+// Remove this `ifdef block, and the corresponding wire
+// declarations below, before synthesis in Vivado.
+// ----------------------------------------------------------
+    input  wire [7:0]  sim_rx_byte,
+    input  wire        sim_rx_byte_valid,
+    input  wire        sim_rx_frame_start,
+    input  wire        sim_rx_frame_end,
+`endif
+
     // LAN8720A PHY 0 (WAN side — from router)
     input  wire        phy0_rxd1,
     input  wire        phy0_rxd0,
@@ -47,10 +62,23 @@ module hass_top (
     // ----------------------------------------------------------
     // Internal wires: byte stream from TEMAC to engines
     // ----------------------------------------------------------
+    /*
     wire [7:0]  rx_byte;
     wire        rx_byte_valid;
     wire        rx_frame_start;
     wire        rx_frame_end;
+    */
+    `ifdef SIM_BYPASS_TEMAC
+        wire [7:0]  rx_byte        = sim_rx_byte;
+        wire        rx_byte_valid  = sim_rx_byte_valid;
+        wire        rx_frame_start = sim_rx_frame_start;
+        wire        rx_frame_end   = sim_rx_frame_end;
+    `else
+        wire [7:0]  rx_byte;
+        wire        rx_byte_valid;
+        wire        rx_frame_start;
+        wire        rx_frame_end;
+    `endif
 
     // Per-engine match signals
     wire        ac_match;
@@ -82,9 +110,11 @@ module hass_top (
     assign phy1_ref_clk = 1'b0;
 
     // ----------------------------------------------------------
+    //COMMENTED OUT FOR TEMAC TESTING PURPOSES
     // TEMAC + RMII shim (Xilinx TEMAC IP core instantiation stub)
     // Full port list comes from Vivado IP integrator export
     // ----------------------------------------------------------
+    /*
     temac_rmii_shim u_temac (
         .clk           (clk),
         .rst_n         (rst_n),
@@ -109,6 +139,7 @@ module hass_top (
         .sinkhole_active(sinkhole_active),
         .sinkhole_ip    (sinkhole_ip)
     );
+    */
 
     // ----------------------------------------------------------
     // Engine 1: Aho-Corasick signature matcher
