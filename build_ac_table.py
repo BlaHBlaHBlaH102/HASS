@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build_ac_table.py
+build_ac_table.py (v2 - expanded realistic pattern set)
 
 Builds a completed (failure-merged) Aho-Corasick DFA from a list of patterns,
 matching the table format expected by aho_corasick.v:
@@ -25,16 +25,48 @@ Outputs:
 from collections import deque
 
 # ---------------------------------------------------------------------------
-# STEP 1: Define test patterns
-# Small, hand-picked set for HDL verification.
-# Includes one pair with a shared prefix ("scam" / "scammer") to exercise
-# the failure-link logic for real (this is the whole point of the test).
+# STEP 1: Define a larger, realistic pattern set.
+#
+# Modeled on the *shape* of real URLhaus / PhishTank / Emerging Threats
+# indicators per HASS's threat table:
+#   - tech support scam domain fragments
+#   - brand-impersonation phishing fragments (PayPal, Microsoft, banks)
+#   - generic malware/C2-shaped tokens
+#   - deliberate overlaps and near-misses to exercise failure links
+#
+# These are SYNTHETIC fragments shaped like real indicators, not actual
+# malicious domains.
 # ---------------------------------------------------------------------------
 PATTERNS = [
-    "evil",
+    # --- tech support scam family ---
     "scam",
     "scammer",
+    "scam-alert",
+    "tech-support-scam",
+    "windows-defender-alert",
+    "virus-detected",
+
+    # --- brand impersonation / phishing family ---
+    "paypal-secure",
+    "paypal-secure-login",
+    "secure-login",
+    "account-verify",
+    "verify-account-now",
+    "microsoft-support",
+    "apple-id-locked",
+    "bank-alert-update",
+
+    # --- generic malware / C2-shaped tokens ---
+    "evil",
+    "malware",
+    "trojan",
+    "c2-beacon",
+    "backdoor",
+
+    # --- deliberate near-miss / overlap stress cases ---
+    "scammed",        # shares "scam" prefix but diverges at 5th char
     "bad",
+    "badge",          # shares "bad" prefix but diverges at 4th char
 ]
 
 ALPHABET_SIZE = 256
@@ -152,9 +184,10 @@ def main():
                     f"pattern IDs {sorted(state.output)} "
                     f"({[PATTERNS[i] for i in sorted(state.output)]})\n"
                 )
-        f.write("\nFailure links:\n")
+        f.write("\nFailure links (non-trivial only, i.e. fail != 0):\n")
         for state in states:
-            f.write(f"  state {state.state_id} -> fail {state.fail}\n")
+            if state.fail != 0:
+                f.write(f"  state {state.state_id} -> fail {state.fail}\n")
 
     print(f"Built DFA with {num_states} states for {len(PATTERNS)} patterns.")
     print("Wrote: goto_table.hex, output_table.hex, output_id.hex, summary.txt")
