@@ -70,11 +70,11 @@ module aho_corasick #(
             sram_ce_n        <= 1;
             sram_drive       <= 0;
         end else begin
-            match_found <= 0;  // default: deassert each cycle
 
             if (frame_start) begin
                 current_state <= 0;
                 byte_offset   <= 0;
+                match_found   <= 0;
             end else if (byte_valid) begin
                 // Follow goto link
                 $display("    DEBUG AC: byte_in=%c (0x%h) state=%0d", byte_in, byte_in, current_state);
