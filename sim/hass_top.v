@@ -1,29 +1,20 @@
 // ============================================================
 // HASS - Top-Level Wrapper
-// Connects: TEMAC -> Inspection Engines -> Alert/Sinkhole Logic
+// Connects: TEMAC -> Header Parser -> Inspection Engines -> Alert/Sinkhole Logic
 // Target: Digilent Arty A7-100T (Artix-7 XC7A100T)
 // ============================================================
 
 module hass_top (
-    input  wire        clk_125mhz,    // Arty on-board oscillator
-    input  wire        rst_btn,       // BTN0 as active-high reset
+    input  wire        clk_125mhz,
+    input  wire        rst_btn,
 
 `ifdef SIM_BYPASS_TEMAC
-// ----------------------------------------------------------
-// *** SIMULATION-ONLY PORTS ***
-// Added so tb_hass_top.v can drive the byte stream directly,
-// bypassing the real TEMAC IP (which Icarus cannot simulate).
-// These ports DO NOT EXIST in the synthesizable design.
-// Remove this `ifdef block, and the corresponding wire
-// declarations below, before synthesis in Vivado.
-// ----------------------------------------------------------
     input  wire [7:0]  sim_rx_byte,
     input  wire        sim_rx_byte_valid,
     input  wire        sim_rx_frame_start,
     input  wire        sim_rx_frame_end,
 `endif
 
-    // LAN8720A PHY 0 (WAN side — from router)
     input  wire        phy0_rxd1,
     input  wire        phy0_rxd0,
     input  wire        phy0_crs_dv,
@@ -31,9 +22,8 @@ module hass_top (
     output wire        phy0_txd1,
     output wire        phy0_txd0,
     output wire        phy0_tx_en,
-    output wire        phy0_ref_clk,  // 50 MHz to PHY XTAL_IN
+    output wire        phy0_ref_clk,
 
-    // LAN8720A PHY 1 (LAN side — to user PC)
     input  wire        phy1_rxd1,
     input  wire        phy1_rxd0,
     input  wire        phy1_crs_dv,
@@ -43,114 +33,130 @@ module hass_top (
     output wire        phy1_tx_en,
     output wire        phy1_ref_clk,
 
-    // IS62WV51216 SRAM (shared bus, arbitrated)
     output wire [17:0] sram_addr,
     inout  wire [15:0] sram_data,
     output wire        sram_we_n,
     output wire        sram_oe_n,
     output wire        sram_ce_n,
 
-    // WS2812B LED strip (via 74AHCT125 level shifter)
     output wire        ws2812_din,
 
-    // MicroBlaze AXI (stub — will be expanded)
-    // Included so IP integrator sees the port early
     input  wire        mb_axi_clk,
     input  wire        mb_axi_rst_n
 );
 
-    // ----------------------------------------------------------
-    // Internal wires: byte stream from TEMAC to engines
-    // ----------------------------------------------------------
-    /*
+`ifdef SIM_BYPASS_TEMAC
+    wire [7:0]  rx_byte        = sim_rx_byte;
+    wire        rx_byte_valid  = sim_rx_byte_valid;
+    wire        rx_frame_start = sim_rx_frame_start;
+    wire        rx_frame_end   = sim_rx_frame_end;
+`else
     wire [7:0]  rx_byte;
     wire        rx_byte_valid;
     wire        rx_frame_start;
     wire        rx_frame_end;
-    */
-    `ifdef SIM_BYPASS_TEMAC
-        wire [7:0]  rx_byte        = sim_rx_byte;
-        wire        rx_byte_valid  = sim_rx_byte_valid;
-        wire        rx_frame_start = sim_rx_frame_start;
-        wire        rx_frame_end   = sim_rx_frame_end;
-    `else
-        wire [7:0]  rx_byte;
-        wire        rx_byte_valid;
-        wire        rx_frame_start;
-        wire        rx_frame_end;
-    `endif
+`endif
 
-    // Per-engine match signals
+    wire [31:0] hdr_src_ip;
+    wire [31:0] hdr_dst_ip;
+    wire [15:0] hdr_src_port;
+    wire [15:0] hdr_dst_port;
+    wire [7:0]  hdr_protocol;
+    wire        hdr_is_syn;
+    wire        hdr_is_syn_ack;
+    wire        hdr_is_ack;
+    wire        hdr_is_fin;
+    wire        hdr_is_rst;
+    wire        hdr_is_arp_reply;
+    wire [7:0]  hdr_payload_byte;
+    wire        hdr_payload_valid;
+    wire        hdr_payload_start;
+    wire        hdr_payload_end;
+    wire        hdr_valid;
+
+    wire dns_is_udp53 = (hdr_protocol == 8'h11) &&
+                        ((hdr_src_port == 16'd53) || (hdr_dst_port == 16'd53));
+    wire dns_byte_valid = hdr_payload_valid && dns_is_udp53;
+
     wire        ac_match;
     wire [9:0]  ac_pattern_id;
     wire [15:0] ac_offset;
 
-    wire        entropy_alert;     // stub — entropy_calc.v (TBD)
-    wire        dns_alert;         // stub — dns_parser.v (TBD)
-    wire        rate_alert;        // stub — rate_monitor.v (TBD)
+    wire        entropy_alert;
+    wire        dns_alert;
+    wire        rate_alert;
+    wire [1:0]  rate_alert_type;
+    wire [7:0]  dns_nxdomain_count;
 
-    // Combined threat signal
     wire        threat_detected;
     assign threat_detected = ac_match | entropy_alert | dns_alert | rate_alert;
 
-    // DNS sinkhole override (driven by dns_parser when blocking)
     wire        sinkhole_active;
-    wire [31:0] sinkhole_ip;       // 192.168.254.1 hardcoded in dns_parser
+    wire [31:0] sinkhole_ip;
 
-    // ----------------------------------------------------------
-    // Clock/reset
-    // ----------------------------------------------------------
     wire clk;
     wire rst_n;
     assign clk   = clk_125mhz;
     assign rst_n = ~rst_btn;
 
-    // 50 MHz reference to both PHYs (ODDR or BUFR — tie for now)
-    assign phy0_ref_clk = 1'b0;  // TODO: replace with MMCM 50 MHz output
+    assign phy0_ref_clk = 1'b0;
     assign phy1_ref_clk = 1'b0;
 
-    // ----------------------------------------------------------
-    //COMMENTED OUT FOR TEMAC TESTING PURPOSES
-    // TEMAC + RMII shim (Xilinx TEMAC IP core instantiation stub)
-    // Full port list comes from Vivado IP integrator export
-    // ----------------------------------------------------------
     /*
     temac_rmii_shim u_temac (
         .clk           (clk),
         .rst_n         (rst_n),
-        // PHY0 RMII
         .phy0_rxd      ({phy0_rxd1, phy0_rxd0}),
         .phy0_crs_dv   (phy0_crs_dv),
         .phy0_rx_er    (phy0_rx_er),
         .phy0_txd      ({phy0_txd1, phy0_txd0}),
         .phy0_tx_en    (phy0_tx_en),
-        // PHY1 RMII
         .phy1_rxd      ({phy1_rxd1, phy1_rxd0}),
         .phy1_crs_dv   (phy1_crs_dv),
         .phy1_rx_er    (phy1_rx_er),
         .phy1_txd      ({phy1_txd1, phy1_txd0}),
         .phy1_tx_en    (phy1_tx_en),
-        // Byte stream out to inspection pipeline
         .rx_byte       (rx_byte),
         .rx_byte_valid (rx_byte_valid),
         .rx_frame_start(rx_frame_start),
         .rx_frame_end  (rx_frame_end),
-        // Sinkhole inject (DNS forged response path)
         .sinkhole_active(sinkhole_active),
         .sinkhole_ip    (sinkhole_ip)
     );
     */
 
-    // ----------------------------------------------------------
-    // Engine 1: Aho-Corasick signature matcher
-    // ----------------------------------------------------------
+    pkt_header_parser u_pkt_parser (
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .byte_in       (rx_byte),
+        .byte_valid    (rx_byte_valid),
+        .frame_start   (rx_frame_start),
+        .frame_end     (rx_frame_end),
+        .src_ip        (hdr_src_ip),
+        .dst_ip        (hdr_dst_ip),
+        .src_port      (hdr_src_port),
+        .dst_port      (hdr_dst_port),
+        .protocol      (hdr_protocol),
+        .is_syn        (hdr_is_syn),
+        .is_syn_ack    (hdr_is_syn_ack),
+        .is_ack        (hdr_is_ack),
+        .is_fin        (hdr_is_fin),
+        .is_rst        (hdr_is_rst),
+        .is_arp_reply  (hdr_is_arp_reply),
+        .payload_byte  (hdr_payload_byte),
+        .payload_valid (hdr_payload_valid),
+        .payload_start (hdr_payload_start),
+        .payload_end   (hdr_payload_end),
+        .hdr_valid     (hdr_valid)
+    );
+
     aho_corasick u_ac (
         .clk              (clk),
         .rst_n            (rst_n),
-        .byte_in          (rx_byte),
-        .byte_valid       (rx_byte_valid),
-        .frame_start      (rx_frame_start),
-        .frame_end        (rx_frame_end),
+        .byte_in          (hdr_payload_byte),
+        .byte_valid       (hdr_payload_valid),
+        .frame_start      (hdr_payload_start),
+        .frame_end        (hdr_payload_end),
         .match_found      (ac_match),
         .match_pattern_id (ac_pattern_id),
         .match_offset     (ac_offset),
@@ -161,38 +167,55 @@ module hass_top (
         .sram_ce_n        (sram_ce_n)
     );
 
-    // ----------------------------------------------------------
-    // Engine 2: Shannon entropy calculator (stub)
-    // ----------------------------------------------------------
-    // entropy_calc u_entropy ( ... );
-    assign entropy_alert = 1'b0;
+    entropy_calc u_entropy (
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .byte_in       (hdr_payload_byte),
+        .byte_valid    (hdr_payload_valid),
+        .frame_start   (hdr_payload_start),
+        .frame_end     (hdr_payload_end),
+        .entropy_alert (entropy_alert),
+        .entropy_value ()
+    );
 
-    // ----------------------------------------------------------
-    // Engine 3: DNS protocol parser + sinkhole (stub)
-    // ----------------------------------------------------------
-    // dns_parser u_dns ( ... );
-    assign dns_alert     = 1'b0;
-    assign sinkhole_active = 1'b0;
-    assign sinkhole_ip     = 32'hC0A8FE01;  // 192.168.254.1
+    dns_parser u_dns (
+        .clk             (clk),
+        .rst_n           (rst_n),
+        .byte_in         (hdr_payload_byte),
+        .byte_valid      (dns_byte_valid),
+        .frame_start     (hdr_payload_start),
+        .frame_end       (hdr_payload_end),
+        .ac_match        (ac_match),
+        .dns_alert       (dns_alert),
+        .sinkhole_active (sinkhole_active),
+        .sinkhole_ip     (sinkhole_ip),
+        .nxdomain_count  (dns_nxdomain_count)
+    );
 
-    // ----------------------------------------------------------
-    // Engine 4: Rate / flow monitor (stub)
-    // ----------------------------------------------------------
-    // rate_monitor u_rate ( ... );
-    assign rate_alert = 1'b0;
+    rate_monitor u_rate (
+        .clk          (clk),
+        .rst_n        (rst_n),
+        .src_ip       (hdr_src_ip),
+        .dst_ip       (hdr_dst_ip),
+        .src_port     (hdr_src_port),
+        .dst_port     (hdr_dst_port),
+        .protocol     (hdr_protocol),
+        .pkt_valid    (hdr_valid),
+        .is_syn       (hdr_is_syn),
+        .is_syn_ack   (hdr_is_syn_ack),
+        .is_arp_reply (hdr_is_arp_reply),
+        .rate_alert   (rate_alert),
+        .alert_type   (rate_alert_type)
+    );
 
-    // ----------------------------------------------------------
-    // Alert controller: drives WS2812B LED strip
-    // ----------------------------------------------------------
     ws2812_alert u_alert (
         .clk            (clk),
         .rst_n          (rst_n),
         .threat_detected(threat_detected),
-        .threat_level   (ac_match ? 2'd2 :
-                         dns_alert ? 2'd3 :
-                         2'd1),
+        .threat_level   ((ac_match || dns_alert) ? 2'd2 :
+                          (entropy_alert || rate_alert) ? 2'd1 :
+                          2'd0),
         .ws2812_din     (ws2812_din)
     );
 
 endmodule
-
