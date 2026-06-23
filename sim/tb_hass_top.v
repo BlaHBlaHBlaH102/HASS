@@ -65,6 +65,9 @@ module tb_hass_top;
         $readmemh("output_table.hex", u_dut.u_ac.output_table);
         $readmemh("output_id.hex", u_dut.u_ac.output_id);
         $display("DEBUG: AC table load complete");
+        $display("DEBUG CHECK: goto_bram[0]['s']=%0d (expect 5)", u_dut.u_ac.goto_bram[0]["s"]);
+        $display("DEBUG CHECK: goto_bram[5]['c']=%0d (expect 6)", u_dut.u_ac.goto_bram[5]["c"]);
+        $display("DEBUG CHECK: goto_bram[0]['-']=%0d (expect 0)", u_dut.u_ac.goto_bram[0]["-"]);
     end
 
     reg [31:0] prng_state = 32'hDEADBEEF;
