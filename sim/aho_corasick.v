@@ -77,6 +77,7 @@ module aho_corasick #(
                 byte_offset   <= 0;
             end else if (byte_valid) begin
                 // Follow goto link
+                $display("    DEBUG AC: byte_in=%c (0x%h) state=%0d", byte_in, byte_in, current_state);
                 current_state <= goto_bram[current_state][byte_in];
                 byte_offset   <= byte_offset + 1;
 
