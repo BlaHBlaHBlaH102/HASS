@@ -108,7 +108,7 @@ module tb_hass_top;
     endtask
 
     task send_dns_query_frame;
-        input [8*32-1:0] payload;
+        input [8*48-1:0] payload;
         input integer    payload_len;
         integer kk;
         integer udp_len;
