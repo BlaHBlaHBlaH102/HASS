@@ -64,9 +64,7 @@ module tb_hass_top;
         end
         $readmemh("output_table.hex", u_dut.u_ac.output_table);
         $readmemh("output_id.hex", u_dut.u_ac.output_id);
-        $display("DEBUG: AC table load complete");
-  
-          u_dut.u_ac.output_table[8], u_dut.u_ac.output_id[8]);
+
     end
 
     reg [31:0] prng_state = 32'hDEADBEEF;
