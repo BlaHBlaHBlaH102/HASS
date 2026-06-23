@@ -168,7 +168,8 @@ module tb_hass_top;
             {8'h00,8'h02,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
              8'h00,8'h00,8'h00,8'h00,
              8'h12,"w","i","n","d","o","w","s","-","s","c","a","m","-","a","l","e","r","t",
-             8'h03,"c","o","m",8'h00,8'h00,8'h01,8'h00,8'h01}, 32);
+             8'h03,"c","o","m",8'h00,
+             8'h00,8'h01,8'h00,8'h01}, 40);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b sinkhole_ip=%h",
