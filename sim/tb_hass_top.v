@@ -65,10 +65,7 @@ module tb_hass_top;
         $readmemh("output_table.hex", u_dut.u_ac.output_table);
         $readmemh("output_id.hex", u_dut.u_ac.output_id);
         $display("DEBUG: AC table load complete");
-        $display("DEBUG CHECK: goto_bram[0]['s']=%0d (expect 5)", u_dut.u_ac.goto_bram[0]["s"]);
-        $display("DEBUG CHECK: goto_bram[5]['c']=%0d (expect 6)", u_dut.u_ac.goto_bram[5]["c"]);
-        $display("DEBUG CHECK: goto_bram[0]['-']=%0d (expect 0)", u_dut.u_ac.goto_bram[0]["-"]);
-        $display("DEBUG CHECK: output_table[8]=%0d output_id[8]=%0d (expect 1, 1)",
+  
           u_dut.u_ac.output_table[8], u_dut.u_ac.output_id[8]);
     end
 
