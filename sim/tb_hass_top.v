@@ -69,6 +69,7 @@ module tb_hass_top;
 
     reg [31:0] prng_state = 32'hDEADBEEF;
     function [7:0] next_rand_byte;
+        input dummy;
         begin
             prng_state = prng_state ^ (prng_state << 13);
             prng_state = prng_state ^ (prng_state >> 17);
@@ -314,7 +315,7 @@ module tb_hass_top;
         send_byte("b"); send_byte("a"); send_byte("c"); send_byte("k");
         send_byte("d"); send_byte("o"); send_byte("o"); send_byte("r");
         for (k = 0; k < 248; k = k + 1) begin
-            send_byte(next_rand_byte());
+            send_byte(next_rand_byte(1'b0));
         end
         end_frame;
         repeat(300) @(posedge clk_125mhz);
