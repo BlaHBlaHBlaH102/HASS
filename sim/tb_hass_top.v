@@ -69,7 +69,6 @@ module tb_hass_top;
 
     reg [31:0] prng_state = 32'hDEADBEEF;
     function [7:0] next_rand_byte;
-        input dummy;
         begin
             prng_state = prng_state ^ (prng_state << 13);
             prng_state = prng_state ^ (prng_state >> 17);
@@ -174,11 +173,12 @@ module tb_hass_top;
         // ---------------------------------------------------------
         $display("--- TEST 2: tech-support-scam fragment (expect ac_match, sinkhole) ---");
         start_frame;
-        // Original: "alert-tech-support-scam-now.example"
-        send_dns_query_frame({8'h05,"a","l","e","r","t",8'h07,"t","e","c","h",8'h07,"s","u","p","p","o","r","t",8'h04,"s","c","a","m",8'h03,"n","o","w",8'h07,"e","x","a","m","p","l","e",8'h00}, 36);
+        send_udp_payload_string("alert-tech-support-scam-now.example", 36, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b", u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert, u_dut.sinkhole_active);
+        $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert,
+                  u_dut.sinkhole_active);
 
         // ---------------------------------------------------------
         // TEST 3: "paypal-secure-login" phishing fragment (pattern 7,
@@ -187,11 +187,11 @@ module tb_hass_top;
         // ---------------------------------------------------------
         $display("--- TEST 3: paypal-secure-login phishing fragment (expect ac_match) ---");
         start_frame;
-        // Original: "www-paypal-secure-login.example"
-        send_dns_query_frame({8'h03,"w","w","w",8'h06,"p","a","y","p","a","l",8'h06,"s","e","c","u","r","e",8'h05,"l","o","g","i","n",8'h07,"e","x","a","m","p","l","e",8'h00}, 32);
+        send_udp_payload_string("www-paypal-secure-login.example", 32, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b dns_alert=%b", u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert);
+        $display("  threat_detected=%b ac_match=%b dns_alert=%b",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert);
 
         // ---------------------------------------------------------
         // TEST 4: near-miss stress -- "scammed" (pattern 19) should
@@ -199,11 +199,11 @@ module tb_hass_top;
         // ---------------------------------------------------------
         $display("--- TEST 4: \"scammed\" near-miss-prefix pattern (expect ac_match, id=19) ---");
         start_frame;
-        // Original: "i-got-scammed-yesterday.example"
-        send_dns_query_frame({8'h01,"i",8'h03,"g","o","t",8'h07,"s","c","a","m","m","e","d",8'h09,"y","e","s","t","e","r","d","a","y",8'h07,"e","x","a","m","p","l","e",8'h00}, 32);
+        send_udp_payload_string("i-got-scammed-yesterday.example", 32, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d", u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
+        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (expect 19)",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
 
         // ---------------------------------------------------------
         // TEST 5: near-miss negative -- "badge-printer.com" contains
@@ -216,11 +216,11 @@ module tb_hass_top;
         // ---------------------------------------------------------
         $display("--- TEST 5: \"badge-printer.com\" (expect BOTH bad id=20 then badge id=21) ---");
         start_frame;
-        // Original: "badge-printer.com"
-        send_dns_query_frame({8'h05,"b","a","d","g","e",8'h07,"p","r","i","n","t","e","r",8'h03,"c","o","m",8'h00}, 18);
+        send_udp_payload_string("badge-printer.com", 18, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d", u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
+        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (last match wins, expect 21)",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
 
         // ---------------------------------------------------------
         // TEST 6: "backdoor" token (pattern 18) sent as a high-entropy
@@ -249,7 +249,7 @@ module tb_hass_top;
         send_byte("b"); send_byte("a"); send_byte("c"); send_byte("k");
         send_byte("d"); send_byte("o"); send_byte("o"); send_byte("r");
         for (k = 0; k < 248; k = k + 1) begin
-            send_byte(next_rand_byte(1'b0));
+            send_byte(next_rand_byte());
         end
         end_frame;
         repeat(300) @(posedge clk_125mhz);
@@ -366,7 +366,8 @@ module tb_hass_top;
             send_byte(8'h00); send_byte(8'h50);
             send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01);
             send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h00);
-            send_byte(8'h50); send_byte(8'h02);
+            send_byte(8'h50); send_byte(8'h00);
+            send_byte(8'h02);
             send_byte(8'hFF); send_byte(8'hFF);
             send_byte(8'h00); send_byte(8'h00);
             send_byte(8'h00); send_byte(8'h00);
