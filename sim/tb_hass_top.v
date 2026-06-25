@@ -64,12 +64,11 @@ module tb_hass_top;
         end
         $readmemh("output_table.hex", u_dut.u_ac.output_table);
         $readmemh("output_id.hex", u_dut.u_ac.output_id);
-
+        $display("DEBUG: AC table load complete (210-state, 22-pattern set)");
     end
 
     reg [31:0] prng_state = 32'hDEADBEEF;
     function [7:0] next_rand_byte;
-        input dummy;
         begin
             prng_state = prng_state ^ (prng_state << 13);
             prng_state = prng_state ^ (prng_state >> 17);
@@ -107,13 +106,20 @@ module tb_hass_top;
         end
     endtask
 
-    task send_dns_query_frame;
-        input [8*48-1:0] payload;
-        input integer    payload_len;
+    // Sends a full Eth+IPv4+UDP frame whose payload is exactly the
+    // ASCII bytes of `domain` (a DNS-shaped label sequence is NOT
+    // reconstructed here -- AC only needs to see the raw characters
+    // appear in order somewhere in the byte stream, since it does
+    // not understand DNS framing; this keeps the task simple while
+    // still proving AC's detection against realistic domain text).
+    task send_udp_payload_string;
+        input [8*64-1:0] str;
+        input integer    str_len;
+        input [15:0]     dst_port;
         integer kk;
         integer udp_len;
         begin
-            udp_len = 8 + payload_len;
+            udp_len = 8 + str_len;
 
             send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
             send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
@@ -132,12 +138,12 @@ module tb_hass_top;
             send_byte(8'h08); send_byte(8'h08); send_byte(8'h08); send_byte(8'h08);
 
             send_byte(8'h13); send_byte(8'h88);
-            send_byte(8'h00); send_byte(8'h35);
+            send_byte(dst_port[15:8]); send_byte(dst_port[7:0]);
             send_byte(udp_len[15:8]); send_byte(udp_len[7:0]);
             send_byte(8'h00); send_byte(8'h00);
 
-            for (kk = 0; kk < payload_len; kk = kk + 1) begin
-                send_byte(payload[8*(payload_len-1-kk) +: 8]);
+            for (kk = 0; kk < str_len; kk = kk + 1) begin
+                send_byte(str[8*(str_len-1-kk) +: 8]);
             end
         end
     endtask
@@ -149,34 +155,79 @@ module tb_hass_top;
         rst_btn = 0;
         repeat(2) @(posedge clk_125mhz);
 
-        $display("--- TEST 1: clean query, ordinary domain (expect silence) ---");
+        // ---------------------------------------------------------
+        // TEST 1: clean payload, no pattern present. Baseline silence.
+        // ---------------------------------------------------------
+        $display("--- TEST 1: clean payload (expect silence) ---");
         start_frame;
-        send_dns_query_frame(
-            {8'h00,8'h01,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
-             8'h00,8'h00,8'h00,8'h00,8'h06,"g","i","t","h","u","b",
-             8'h03,"c","o","m",8'h00,8'h00,8'h01,8'h00,8'h01,
-             8'h00,8'h00,8'h00,8'h00,8'h00,8'h00}, 30);
+        send_udp_payload_string("github.com lookup request padding", 35, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b entropy_alert=%b rate_alert=%b",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert,
                   u_dut.entropy_alert, u_dut.rate_alert);
 
-        $display("--- TEST 2: query for windows-scam-alert.com (expect sinkhole) ---");
+        // ---------------------------------------------------------
+        // TEST 2: "tech-support-scam" domain fragment (pattern 3,
+        // which shares accepting state 30 with pattern 0 "scam").
+        // ---------------------------------------------------------
+        $display("--- TEST 2: tech-support-scam fragment (expect ac_match, sinkhole) ---");
         start_frame;
-        send_dns_query_frame(
-            {8'h00,8'h02,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
-             8'h00,8'h00,8'h00,8'h00,
-             8'h12,"w","i","n","d","o","w","s","-","s","c","a","m","-","a","l","e","r","t",
-             8'h03,"c","o","m",8'h00,
-             8'h00,8'h01,8'h00,8'h01}, 40);
+        send_udp_payload_string("alert-tech-support-scam-now.example", 36, 16'd53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b sinkhole_ip=%h",
+        $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert,
-                  u_dut.sinkhole_active, u_dut.sinkhole_ip);
+                  u_dut.sinkhole_active);
 
-        $display("--- TEST 3: high-entropy 256-byte UDP payload, port 4444 (expect entropy_alert) ---");
+        // ---------------------------------------------------------
+        // TEST 3: "paypal-secure-login" phishing fragment (pattern 7,
+        // which also simultaneously satisfies pattern 8 "secure-login"
+        // per the accepting-state table -- both share state 85).
+        // ---------------------------------------------------------
+        $display("--- TEST 3: paypal-secure-login phishing fragment (expect ac_match) ---");
+        start_frame;
+        send_udp_payload_string("www-paypal-secure-login.example", 32, 16'd53);
+        end_frame;
+        repeat(4) @(posedge clk_125mhz);
+        $display("  threat_detected=%b ac_match=%b dns_alert=%b",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert);
+
+        // ---------------------------------------------------------
+        // TEST 4: near-miss stress -- "scammed" (pattern 19) should
+        // fire cleanly without corrupting subsequent matching.
+        // ---------------------------------------------------------
+        $display("--- TEST 4: \"scammed\" near-miss-prefix pattern (expect ac_match, id=19) ---");
+        start_frame;
+        send_udp_payload_string("i-got-scammed-yesterday.example", 32, 16'd53);
+        end_frame;
+        repeat(4) @(posedge clk_125mhz);
+        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (expect 19)",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
+
+        // ---------------------------------------------------------
+        // TEST 5: near-miss negative -- "badge-printer.com" contains
+        // "bad" as a literal prefix of "badge". Since "bad" (id 20)
+        // is itself a complete pattern, AC SHOULD fire on "bad" the
+        // moment those 3 letters complete, then ALSO fire "badge"
+        // (id 21) when the 4th letter completes -- this is correct
+        // behavior, not a false positive, since "bad" genuinely is
+        // a substring. Confirms both fire, in the right order.
+        // ---------------------------------------------------------
+        $display("--- TEST 5: \"badge-printer.com\" (expect BOTH bad id=20 then badge id=21) ---");
+        start_frame;
+        send_udp_payload_string("badge-printer.com", 18, 16'd53);
+        end_frame;
+        repeat(4) @(posedge clk_125mhz);
+        $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (last match wins, expect 21)",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
+
+        // ---------------------------------------------------------
+        // TEST 6: "backdoor" token (pattern 18) sent as a high-entropy
+        // C2-shaped payload on a non-standard port. Tests AC + entropy
+        // firing simultaneously, and threat_level priority logic.
+        // ---------------------------------------------------------
+        $display("--- TEST 6: \"backdoor\" token + high-entropy padding, port 4444 ---");
         start_frame;
         send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
         send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
@@ -184,8 +235,8 @@ module tb_hass_top;
         send_byte(8'hDD); send_byte(8'hEE); send_byte(8'hFF);
         send_byte(8'h08); send_byte(8'h00);
         send_byte(8'h45); send_byte(8'h00);
-        send_byte(8'h01); send_byte(8'h08);
-        send_byte(8'h00); send_byte(8'h03);
+        send_byte(8'h01); send_byte(8'h10);
+        send_byte(8'h00); send_byte(8'h05);
         send_byte(8'h00); send_byte(8'h00);
         send_byte(8'h40); send_byte(8'h11);
         send_byte(8'h00); send_byte(8'h00);
@@ -193,17 +244,22 @@ module tb_hass_top;
         send_byte(8'h0A); send_byte(8'h00); send_byte(8'h00); send_byte(8'h02);
         send_byte(8'hAB); send_byte(8'hCD);
         send_byte(8'h11); send_byte(8'h5C);
-        send_byte(8'h01); send_byte(8'h08);
+        send_byte(8'h01); send_byte(8'h10);
         send_byte(8'h00); send_byte(8'h00);
-        for (k = 0; k < 256; k = k + 1) begin
-            send_byte(next_rand_byte(1'b0));
+        send_byte("b"); send_byte("a"); send_byte("c"); send_byte("k");
+        send_byte("d"); send_byte("o"); send_byte("o"); send_byte("r");
+        for (k = 0; k < 248; k = k + 1) begin
+            send_byte(next_rand_byte());
         end
         end_frame;
         repeat(300) @(posedge clk_125mhz);
-        $display("  threat_detected=%b entropy_alert=%b dns_alert=%b",
-                  u_dut.threat_detected, u_dut.entropy_alert, u_dut.dns_alert);
+        $display("  threat_detected=%b ac_match=%b entropy_alert=%b threat_level priority check via LED logic",
+                  u_dut.threat_detected, u_dut.ac_match, u_dut.entropy_alert);
 
-        $display("--- TEST 4: DNS response rebinding to 192.168.50.1 (expect dns_alert) ---");
+        // ---------------------------------------------------------
+        // TEST 7: DNS rebinding (same proven scenario as before).
+        // ---------------------------------------------------------
+        $display("--- TEST 7: DNS rebinding to 192.168.50.1 (expect dns_alert) ---");
         start_frame;
         send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
         send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
@@ -247,7 +303,10 @@ module tb_hass_top;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b dns_alert=%b", u_dut.threat_detected, u_dut.dns_alert);
 
-        $display("--- TEST 5: NXDOMAIN burst, 10x rapid responses ---");
+        // ---------------------------------------------------------
+        // TEST 8: NXDOMAIN burst (same proven scenario as before).
+        // ---------------------------------------------------------
+        $display("--- TEST 8: NXDOMAIN burst, 10x rapid responses ---");
         for (k = 0; k < 10; k = k + 1) begin
             start_frame;
             send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
@@ -281,6 +340,42 @@ module tb_hass_top;
         end
         $display("  threat_detected=%b dns_alert=%b (expect 1 at 10th NXDOMAIN)",
                   u_dut.threat_detected, u_dut.dns_alert);
+
+        // ---------------------------------------------------------
+        // TEST 9: SYN flood through the FULL pipeline (TEMAC bypass
+        // -> pkt_header_parser -> rate_monitor). 31x SYN packets,
+        // same 4-tuple, no SYN-ACKs.
+        // ---------------------------------------------------------
+        $display("--- TEST 9: SYN flood, 31x SYN packets, same flow (expect rate_alert) ---");
+        for (k = 0; k < 31; k = k + 1) begin
+            start_frame;
+            send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
+            send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
+            send_byte(8'hAA); send_byte(8'hBB); send_byte(8'hCC);
+            send_byte(8'hDD); send_byte(8'hEE); send_byte(8'hFF);
+            send_byte(8'h08); send_byte(8'h00);
+            send_byte(8'h45); send_byte(8'h00);
+            send_byte(8'h00); send_byte(8'h28);
+            send_byte(8'h00); send_byte(k[7:0]);
+            send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'h40); send_byte(8'h06);
+            send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'h0A); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01);
+            send_byte(8'h0A); send_byte(8'h00); send_byte(8'h00); send_byte(8'h02);
+            send_byte(8'h17); send_byte(8'h70);
+            send_byte(8'h00); send_byte(8'h50);
+            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01);
+            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'h50); send_byte(8'h00);
+            send_byte(8'h02);
+            send_byte(8'hFF); send_byte(8'hFF);
+            send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'h00); send_byte(8'h00);
+            end_frame;
+            repeat(2) @(posedge clk_125mhz);
+        end
+        $display("  threat_detected=%b rate_alert=%b (expect 1 by packet 30)",
+                  u_dut.threat_detected, u_dut.rate_alert);
 
         $display("Simulation complete.");
         $finish;
