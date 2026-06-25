@@ -223,7 +223,7 @@ module tb_hass_top;
              8'h04,"s","c","a","m",
              8'h03,"n","o","w",
              8'h07,"e","x","a","m","p","l","e",
-             8'h00,8'h00,8'h01,8'h00,8'h01}, 56);
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 53);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b",
@@ -244,7 +244,7 @@ module tb_hass_top;
              8'h06,"s","e","c","u","r","e",
              8'h05,"l","o","g","i","n",
              8'h07,"e","x","a","m","p","l","e",
-             8'h00,8'h00,8'h01,8'h00,8'h01}, 52);
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 49);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b",
@@ -264,7 +264,7 @@ module tb_hass_top;
              8'h07,"s","c","a","m","m","e","d",
              8'h09,"y","e","s","t","e","r","d","a","y",
              8'h07,"e","x","a","m","p","l","e",
-             8'h00,8'h00,8'h01,8'h00,8'h01}, 56);
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 49);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (expect 19)",
@@ -282,7 +282,7 @@ module tb_hass_top;
              8'h05,"b","a","d","g","e",
              8'h07,"p","r","i","n","t","e","r",
              8'h03,"c","o","m",
-             8'h00,8'h00,8'h01,8'h00,8'h01}, 32);
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 35);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (last match wins, expect 21)",
