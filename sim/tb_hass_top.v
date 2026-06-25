@@ -106,12 +106,49 @@ module tb_hass_top;
         end
     endtask
 
-    // Sends a full Eth+IPv4+UDP frame whose payload is exactly the
-    // ASCII bytes of `domain` (a DNS-shaped label sequence is NOT
-    // reconstructed here -- AC only needs to see the raw characters
-    // appear in order somewhere in the byte stream, since it does
-    // not understand DNS framing; this keeps the task simple while
-    // still proving AC's detection against realistic domain text).
+    // Sends a full Eth+IPv4+UDP(port 53) frame wrapping a properly
+    // framed DNS message (header + length-prefixed QNAME labels +
+    // QTYPE/QCLASS), exactly as a real DNS query would appear.
+    // `payload` must already be valid DNS message bytes.
+    task send_dns_query_frame;
+        input [8*64-1:0] payload;
+        input integer    payload_len;
+        integer kk;
+        integer udp_len;
+        begin
+            udp_len = 8 + payload_len;
+
+            send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
+            send_byte(8'hFF); send_byte(8'hFF); send_byte(8'hFF);
+            send_byte(8'hAA); send_byte(8'hBB); send_byte(8'hCC);
+            send_byte(8'hDD); send_byte(8'hEE); send_byte(8'hFF);
+            send_byte(8'h08); send_byte(8'h00);
+
+            send_byte(8'h45); send_byte(8'h00);
+            send_byte(8'h00); send_byte((20+udp_len) & 8'hFF);
+            send_byte(8'h00); send_byte(8'h01);
+            send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'h40);
+            send_byte(8'h11);
+            send_byte(8'h00); send_byte(8'h00);
+            send_byte(8'hC0); send_byte(8'hA8); send_byte(8'h01); send_byte(8'h0A);
+            send_byte(8'h08); send_byte(8'h08); send_byte(8'h08); send_byte(8'h08);
+
+            send_byte(8'h13); send_byte(8'h88);
+            send_byte(8'h00); send_byte(8'h35);
+            send_byte(udp_len[15:8]); send_byte(udp_len[7:0]);
+            send_byte(8'h00); send_byte(8'h00);
+
+            for (kk = 0; kk < payload_len; kk = kk + 1) begin
+                send_byte(payload[8*(payload_len-1-kk) +: 8]);
+            end
+        end
+    endtask
+
+    // Sends a full Eth+IPv4+UDP frame whose payload is raw ASCII text
+    // (NOT DNS-framed). Valid for AC/entropy-only tests where message
+    // structure doesn't matter -- do NOT use for tests that need
+    // dns_parser to reach S_QCLASS_LO (use send_dns_query_frame instead).
     task send_udp_payload_string;
         input [8*64-1:0] str;
         input integer    str_len;
@@ -156,11 +193,14 @@ module tb_hass_top;
         repeat(2) @(posedge clk_125mhz);
 
         // ---------------------------------------------------------
-        // TEST 1: clean payload, no pattern present. Baseline silence.
+        // TEST 1: clean DNS query, ordinary domain. Baseline silence.
         // ---------------------------------------------------------
-        $display("--- TEST 1: clean payload (expect silence) ---");
+        $display("--- TEST 1: clean query, ordinary domain (expect silence) ---");
         start_frame;
-        send_udp_payload_string("github.com lookup request padding", 35, 16'd53);
+        send_dns_query_frame(
+            {8'h00,8'h01,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
+             8'h00,8'h00,8'h00,8'h00,8'h06,"g","i","t","h","u","b",
+             8'h03,"c","o","m",8'h00,8'h00,8'h01,8'h00,8'h01}, 28);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b entropy_alert=%b rate_alert=%b",
@@ -168,12 +208,21 @@ module tb_hass_top;
                   u_dut.entropy_alert, u_dut.rate_alert);
 
         // ---------------------------------------------------------
-        // TEST 2: "tech-support-scam" domain fragment (pattern 3,
-        // which shares accepting state 30 with pattern 0 "scam").
+        // TEST 2: "tech-support-scam" fragment, properly DNS-framed.
+        // QNAME: "alert" "tech" "support" "scam" "now" "example"
         // ---------------------------------------------------------
         $display("--- TEST 2: tech-support-scam fragment (expect ac_match, sinkhole) ---");
         start_frame;
-        send_udp_payload_string("alert-tech-support-scam-now.example", 36, 16'd53);
+        send_dns_query_frame(
+            {8'h00,8'h02,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
+             8'h00,8'h00,8'h00,8'h00,
+             8'h05,"a","l","e","r","t",
+             8'h04,"t","e","c","h",
+             8'h07,"s","u","p","p","o","r","t",
+             8'h04,"s","c","a","m",
+             8'h03,"n","o","w",
+             8'h07,"e","x","a","m","p","l","e",
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 56);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b sinkhole_active=%b",
@@ -181,51 +230,67 @@ module tb_hass_top;
                   u_dut.sinkhole_active);
 
         // ---------------------------------------------------------
-        // TEST 3: "paypal-secure-login" phishing fragment (pattern 7,
-        // which also simultaneously satisfies pattern 8 "secure-login"
-        // per the accepting-state table -- both share state 85).
+        // TEST 3: "paypal-secure-login" fragment, properly DNS-framed.
+        // QNAME: "www" "paypal" "secure" "login" "example"
         // ---------------------------------------------------------
         $display("--- TEST 3: paypal-secure-login phishing fragment (expect ac_match) ---");
         start_frame;
-        send_udp_payload_string("www-paypal-secure-login.example", 32, 16'd53);
+        send_dns_query_frame(
+            {8'h00,8'h03,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
+             8'h00,8'h00,8'h00,8'h00,
+             8'h03,"w","w","w",
+             8'h06,"p","a","y","p","a","l",
+             8'h06,"s","e","c","u","r","e",
+             8'h05,"l","o","g","i","n",
+             8'h07,"e","x","a","m","p","l","e",
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 52);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.dns_alert);
 
         // ---------------------------------------------------------
-        // TEST 4: near-miss stress -- "scammed" (pattern 19) should
-        // fire cleanly without corrupting subsequent matching.
+        // TEST 4: "scammed" near-miss, properly DNS-framed.
+        // QNAME: "i" "got" "scammed" "yesterday" "example"
         // ---------------------------------------------------------
         $display("--- TEST 4: \"scammed\" near-miss-prefix pattern (expect ac_match, id=19) ---");
         start_frame;
-        send_udp_payload_string("i-got-scammed-yesterday.example", 32, 16'd53);
+        send_dns_query_frame(
+            {8'h00,8'h04,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
+             8'h00,8'h00,8'h00,8'h00,
+             8'h01,"i",
+             8'h03,"g","o","t",
+             8'h07,"s","c","a","m","m","e","d",
+             8'h09,"y","e","s","t","e","r","d","a","y",
+             8'h07,"e","x","a","m","p","l","e",
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 56);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (expect 19)",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
 
         // ---------------------------------------------------------
-        // TEST 5: near-miss negative -- "badge-printer.com" contains
-        // "bad" as a literal prefix of "badge". Since "bad" (id 20)
-        // is itself a complete pattern, AC SHOULD fire on "bad" the
-        // moment those 3 letters complete, then ALSO fire "badge"
-        // (id 21) when the 4th letter completes -- this is correct
-        // behavior, not a false positive, since "bad" genuinely is
-        // a substring. Confirms both fire, in the right order.
+        // TEST 5: "badge-printer.com", properly DNS-framed.
+        // QNAME: "badge" "printer" "com"
         // ---------------------------------------------------------
-        $display("--- TEST 5: \"badge-printer.com\" (expect BOTH bad id=20 then badge id=21) ---");
+        $display("--- TEST 5: \"badge-printer.com\" (expect bad id=20 then badge id=21) ---");
         start_frame;
-        send_udp_payload_string("badge-printer.com", 18, 16'd53);
+        send_dns_query_frame(
+            {8'h00,8'h05,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
+             8'h00,8'h00,8'h00,8'h00,
+             8'h05,"b","a","d","g","e",
+             8'h07,"p","r","i","n","t","e","r",
+             8'h03,"c","o","m",
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 32);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b ac_pattern_id=%0d (last match wins, expect 21)",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.ac_pattern_id);
 
         // ---------------------------------------------------------
-        // TEST 6: "backdoor" token (pattern 18) sent as a high-entropy
-        // C2-shaped payload on a non-standard port. Tests AC + entropy
-        // firing simultaneously, and threat_level priority logic.
+        // TEST 6: "backdoor" token + high-entropy padding, port 4444.
+        // Raw UDP payload (not DNS), so send_udp_payload_string is
+        // correct here -- AC and entropy don't need DNS framing.
         // ---------------------------------------------------------
         $display("--- TEST 6: \"backdoor\" token + high-entropy padding, port 4444 ---");
         start_frame;
@@ -253,11 +318,11 @@ module tb_hass_top;
         end
         end_frame;
         repeat(300) @(posedge clk_125mhz);
-        $display("  threat_detected=%b ac_match=%b entropy_alert=%b threat_level priority check via LED logic",
+        $display("  threat_detected=%b ac_match=%b entropy_alert=%b",
                   u_dut.threat_detected, u_dut.ac_match, u_dut.entropy_alert);
 
         // ---------------------------------------------------------
-        // TEST 7: DNS rebinding (same proven scenario as before).
+        // TEST 7: DNS rebinding (proven scenario).
         // ---------------------------------------------------------
         $display("--- TEST 7: DNS rebinding to 192.168.50.1 (expect dns_alert) ---");
         start_frame;
@@ -304,7 +369,7 @@ module tb_hass_top;
         $display("  threat_detected=%b dns_alert=%b", u_dut.threat_detected, u_dut.dns_alert);
 
         // ---------------------------------------------------------
-        // TEST 8: NXDOMAIN burst (same proven scenario as before).
+        // TEST 8: NXDOMAIN burst (proven scenario).
         // ---------------------------------------------------------
         $display("--- TEST 8: NXDOMAIN burst, 10x rapid responses ---");
         for (k = 0; k < 10; k = k + 1) begin
@@ -342,9 +407,12 @@ module tb_hass_top;
                   u_dut.threat_detected, u_dut.dns_alert);
 
         // ---------------------------------------------------------
-        // TEST 9: SYN flood through the FULL pipeline (TEMAC bypass
-        // -> pkt_header_parser -> rate_monitor). 31x SYN packets,
-        // same 4-tuple, no SYN-ACKs.
+        // TEST 9: SYN flood through the full pipeline. 31x SYN
+        // packets, same 4-tuple, no SYN-ACKs.
+        // TCP header: byte 12 = dataoffset(5)+reserved = 0x50,
+        //             byte 13 = flags (SYN only) = 0x02,
+        //             bytes 14-15 = window, 16-17 = checksum,
+        //             18-19 = urgent ptr. 20 bytes total, no options.
         // ---------------------------------------------------------
         $display("--- TEST 9: SYN flood, 31x SYN packets, same flow (expect rate_alert) ---");
         for (k = 0; k < 31; k = k + 1) begin
@@ -354,6 +422,7 @@ module tb_hass_top;
             send_byte(8'hAA); send_byte(8'hBB); send_byte(8'hCC);
             send_byte(8'hDD); send_byte(8'hEE); send_byte(8'hFF);
             send_byte(8'h08); send_byte(8'h00);
+            // IPv4 header (20 bytes)
             send_byte(8'h45); send_byte(8'h00);
             send_byte(8'h00); send_byte(8'h28);
             send_byte(8'h00); send_byte(k[7:0]);
@@ -362,15 +431,16 @@ module tb_hass_top;
             send_byte(8'h00); send_byte(8'h00);
             send_byte(8'h0A); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01);
             send_byte(8'h0A); send_byte(8'h00); send_byte(8'h00); send_byte(8'h02);
-            send_byte(8'h17); send_byte(8'h70);
-            send_byte(8'h00); send_byte(8'h50);
-            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01);
-            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h00);
-            send_byte(8'h50); send_byte(8'h00);
-            send_byte(8'h02);
-            send_byte(8'hFF); send_byte(8'hFF);
-            send_byte(8'h00); send_byte(8'h00);
-            send_byte(8'h00); send_byte(8'h00);
+            // TCP header (20 bytes, no options)
+            send_byte(8'h17); send_byte(8'h70);  // src_port
+            send_byte(8'h00); send_byte(8'h50);  // dst_port = 80
+            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h01); // seq
+            send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); send_byte(8'h00); // ack
+            send_byte(8'h50);                     // byte 12: dataoffset(5)+reserved
+            send_byte(8'h02);                     // byte 13: flags = SYN only
+            send_byte(8'hFF); send_byte(8'hFF);  // window
+            send_byte(8'h00); send_byte(8'h00);  // checksum
+            send_byte(8'h00); send_byte(8'h00);  // urgent pointer
             end_frame;
             repeat(2) @(posedge clk_125mhz);
         end
