@@ -237,12 +237,9 @@ module tb_hass_top;
         send_dns_query_frame(
             {8'h00,8'h03,8'h01,8'h00,8'h00,8'h01,8'h00,8'h00,
              8'h00,8'h00,8'h00,8'h00,
-             8'h03,"w","w","w",
-             8'h06,"p","a","y","p","a","l",
-             8'h06,"s","e","c","u","r","e",
-             8'h05,"l","o","g","i","n",
+             8'h14,"p","a","y","p","a","l","-","s","e","c","u","r","e","-","l","o","g","i","n",
              8'h07,"e","x","a","m","p","l","e",
-             8'h00,8'h00,8'h01,8'h00,8'h01}, 49);
+             8'h00,8'h00,8'h01,8'h00,8'h01}, 46);
         end_frame;
         repeat(4) @(posedge clk_125mhz);
         $display("  threat_detected=%b ac_match=%b dns_alert=%b",
