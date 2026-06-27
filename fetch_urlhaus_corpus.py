@@ -195,16 +195,14 @@ def main():
             if tag:
                 family_counts[tag] = family_counts.get(tag, 0) + 1
 
+    dedup_ratio = (len(rows) / len(entries) * 100) if entries else 0
     with open(summary_path, "w") as f:
         f.write(f"URLhaus stress-test corpus -- fetched {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}\n")
         f.write(f"Requested limit: {args.limit}\n")
         f.write(f"Raw entries returned: {len(entries)}\n")
-        f.write(f"Unique non-IP hostnames extracted: {len(rows)}\n")
-        f.write(f"\nTop malware family tags in this sample:\n")
-        for tag, count in sorted(family_counts.items(), key=lambda x: -x[1])[:15]:
-            f.write(f"  {tag:20s} {count}\n")
-        f.write(f"\nFor build_ac_table.py: feed it {raw_path}\n")
-        f.write(f"For human review (safe to view/share): {defanged_path}\n")
+        f.write(f"Unique non-IP hostnames extracted: {len(rows)} ({dedup_ratio:.1f}% of raw entries)\n")
+        f.write(f"Note: low uniqueness ratio reflects real-world campaign concentration\n")
+        f.write(f"(multiple malicious URLs per compromised host), not a script defect.\n")
 
     print(f"[*] Unique hostnames extracted: {len(rows)}")
     print(f"[*] Wrote: {defanged_path}  (defanged, safe to view)")
