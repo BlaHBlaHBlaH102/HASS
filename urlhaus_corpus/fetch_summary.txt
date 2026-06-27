@@ -1,15 +1,6 @@
-URLhaus stress-test corpus -- fetched 2026-06-27 00:23:49 UTC
-Requested limit: 150
-Raw entries returned: 150
-Unique non-IP hostnames extracted: 13
-
-Top malware family tags in this sample:
-  ClearFake            10
-  brazil               1
-  exe                  1
-  InnoSetup            1
-  stealer              1
-  btmob                1
-
-For build_ac_table.py: feed it urlhaus_corpus\hostnames_raw.txt
-For human review (safe to view/share): urlhaus_corpus\hostnames_defanged.txt
+URLhaus stress-test corpus -- fetched 2026-06-27 00:30:28 UTC
+Requested limit: 1000
+Raw entries returned: 590
+Unique non-IP hostnames extracted: 52 (8.8% of raw entries)
+Note: low uniqueness ratio reflects real-world campaign concentration
+(multiple malicious URLs per compromised host), not a script defect.
