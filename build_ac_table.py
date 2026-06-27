@@ -70,7 +70,12 @@ PATTERNS = [
 ]
 
 ALPHABET_SIZE = 256
-MAX_STATES = 1024  # must match aho_corasick.v NUM_STATES parameter
+# CRITICAL: aho_corasick.v declares NUM_STATES=1024 as a parameter, but the
+# actual goto_bram/fail_table/output_table arrays are hardcoded to [0:255]
+# (256 states) in the current RTL -- see the "reduced to 256 states fits in
+# BRAM" comment in aho_corasick.v. The 1024 parameter is currently unused
+# by the real memory arrays. This guard checks the REAL hardware limit.
+MAX_STATES = 256  # must match aho_corasick.v goto_bram/fail_table/output_table array bound, NOT the NUM_STATES parameter
 
 
 class TrieNode:
