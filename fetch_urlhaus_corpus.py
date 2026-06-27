@@ -116,7 +116,7 @@ def is_ip_literal(host: str) -> bool:
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--limit", type=int, default=150,
-                     help="Number of recent URLhaus entries to fetch (default: 150)")
+                     help="Number of recent URLhaus entries to fetch (API max: 1000, default: 150)")
     ap.add_argument("--auth-key", default=None,
                      help="Auth-Key (prefer env var URLHAUS_AUTH_KEY instead)")
     args = ap.parse_args()
