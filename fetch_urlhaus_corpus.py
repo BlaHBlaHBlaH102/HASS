@@ -53,10 +53,19 @@ or transmit it anywhere.
 import argparse
 import csv
 import os
+import ssl
 import sys
 import time
 from urllib import request, error
 from urllib.parse import urlparse
+
+try:
+    import certifi
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    # Fall back to system default if certifi isn't installed.
+    # (Run `pip install certifi` if you hit CERTIFICATE_VERIFY_FAILED.)
+    SSL_CONTEXT = ssl.create_default_context()
 
 API_BASE = "https://urlhaus-api.abuse.ch/v1"
 RECENT_ENDPOINT = "{base}/urls/recent/limit/{limit}/"
@@ -74,7 +83,7 @@ def fetch_recent_urls(auth_key: str, limit: int, timeout: int = 15) -> dict:
     url = RECENT_ENDPOINT.format(base=API_BASE, limit=limit)
     req = request.Request(url, headers={"Auth-Key": auth_key})
     try:
-        with request.urlopen(req, timeout=timeout) as resp:
+        with request.urlopen(req, timeout=timeout, context=SSL_CONTEXT) as resp:
             raw = resp.read()
     except error.HTTPError as e:
         sys.exit(f"[fatal] HTTP {e.code} from URLhaus API: {e.reason}\n"
