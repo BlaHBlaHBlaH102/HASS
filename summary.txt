@@ -1,0 +1,154 @@
+Total states: 210
+Pattern source: curated PATTERNS list
+Patterns:
+  ID 0: "scam"
+  ID 1: "scammer"
+  ID 2: "scam-alert"
+  ID 3: "tech-support-scam"
+  ID 4: "windows-defender-alert"
+  ID 5: "virus-detected"
+  ID 6: "paypal-secure"
+  ID 7: "paypal-secure-login"
+  ID 8: "secure-login"
+  ID 9: "account-verify"
+  ID 10: "verify-account-now"
+  ID 11: "microsoft-support"
+  ID 12: "apple-id-locked"
+  ID 13: "bank-alert-update"
+  ID 14: "evil"
+  ID 15: "malware"
+  ID 16: "trojan"
+  ID 17: "c2-beacon"
+  ID 18: "backdoor"
+  ID 19: "scammed"
+  ID 20: "bad"
+  ID 21: "badge"
+
+Accepting states:
+  state 4: pattern IDs [0] (['scam'])
+  state 7: pattern IDs [1] (['scammer'])
+  state 13: pattern IDs [2] (['scam-alert'])
+  state 30: pattern IDs [0, 3] (['scam', 'tech-support-scam'])
+  state 52: pattern IDs [4] (['windows-defender-alert'])
+  state 66: pattern IDs [5] (['virus-detected'])
+  state 79: pattern IDs [6] (['paypal-secure'])
+  state 85: pattern IDs [7, 8] (['paypal-secure-login', 'secure-login'])
+  state 96: pattern IDs [8] (['secure-login'])
+  state 110: pattern IDs [9] (['account-verify'])
+  state 127: pattern IDs [10] (['verify-account-now'])
+  state 144: pattern IDs [11] (['microsoft-support'])
+  state 158: pattern IDs [12] (['apple-id-locked'])
+  state 175: pattern IDs [13] (['bank-alert-update'])
+  state 179: pattern IDs [14] (['evil'])
+  state 185: pattern IDs [15] (['malware'])
+  state 190: pattern IDs [16] (['trojan'])
+  state 199: pattern IDs [17] (['c2-beacon'])
+  state 205: pattern IDs [18] (['backdoor'])
+  state 206: pattern IDs [19] (['scammed'])
+  state 207: pattern IDs [20] (['bad'])
+  state 209: pattern IDs [21] (['badge'])
+
+Failure links (non-trivial only, i.e. fail != 0):
+  state 2 -> fail 191
+  state 3 -> fail 97
+  state 4 -> fail 128
+  state 5 -> fail 128
+  state 6 -> fail 176
+  state 9 -> fail 97
+  state 11 -> fail 176
+  state 13 -> fail 14
+  state 15 -> fail 176
+  state 16 -> fail 191
+  state 19 -> fail 1
+  state 21 -> fail 67
+  state 22 -> fail 67
+  state 25 -> fail 14
+  state 27 -> fail 1
+  state 28 -> fail 2
+  state 29 -> fail 3
+  state 30 -> fail 4
+  state 36 -> fail 31
+  state 37 -> fail 1
+  state 40 -> fail 176
+  state 42 -> fail 176
+  state 45 -> fail 176
+  state 48 -> fail 97
+  state 50 -> fail 176
+  state 52 -> fail 14
+  state 57 -> fail 1
+  state 60 -> fail 176
+  state 61 -> fail 14
+  state 62 -> fail 15
+  state 63 -> fail 16
+  state 64 -> fail 14
+  state 65 -> fail 15
+  state 68 -> fail 97
+  state 70 -> fail 67
+  state 71 -> fail 68
+  state 74 -> fail 1
+  state 75 -> fail 86
+  state 76 -> fail 87
+  state 77 -> fail 88
+  state 78 -> fail 89
+  state 79 -> fail 90
+  state 80 -> fail 91
+  state 81 -> fail 92
+  state 82 -> fail 93
+  state 83 -> fail 94
+  state 84 -> fail 95
+  state 85 -> fail 96
+  state 86 -> fail 176
+  state 87 -> fail 191
+  state 90 -> fail 176
+  state 98 -> fail 191
+  state 99 -> fail 191
+  state 103 -> fail 14
+  state 105 -> fail 53
+  state 106 -> fail 111
+  state 107 -> fail 112
+  state 108 -> fail 113
+  state 109 -> fail 114
+  state 110 -> fail 115
+  state 111 -> fail 176
+  state 117 -> fail 97
+  state 118 -> fail 98
+  state 119 -> fail 99
+  state 120 -> fail 100
+  state 121 -> fail 101
+  state 122 -> fail 102
+  state 123 -> fail 103
+  state 124 -> fail 104
+  state 127 -> fail 31
+  state 130 -> fail 191
+  state 133 -> fail 1
+  state 136 -> fail 14
+  state 138 -> fail 1
+  state 140 -> fail 67
+  state 141 -> fail 67
+  state 144 -> fail 14
+  state 145 -> fail 67
+  state 146 -> fail 67
+  state 148 -> fail 176
+  state 155 -> fail 191
+  state 157 -> fail 176
+  state 160 -> fail 97
+  state 164 -> fail 97
+  state 166 -> fail 176
+  state 168 -> fail 14
+  state 171 -> fail 67
+  state 173 -> fail 97
+  state 174 -> fail 14
+  state 175 -> fail 15
+  state 177 -> fail 53
+  state 178 -> fail 54
+  state 180 -> fail 97
+  state 182 -> fail 31
+  state 183 -> fail 97
+  state 185 -> fail 176
+  state 189 -> fail 97
+  state 194 -> fail 159
+  state 195 -> fail 176
+  state 196 -> fail 97
+  state 197 -> fail 98
+  state 200 -> fail 98
+  state 209 -> fail 176
